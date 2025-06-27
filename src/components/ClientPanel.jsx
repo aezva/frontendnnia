@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import AppTutorial from '@/components/AppTutorial';
 import WelcomeMessage from '@/components/WelcomeMessage';
+import Topbar from '@/components/Topbar';
 
 const ClientPanel = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -50,8 +51,8 @@ const ClientPanel = () => {
   return (
     <div className="flex h-screen bg-background text-foreground font-sans">
       <Sidebar isSidebarOpen={isSidebarOpen} handleLogout={handleLogout} />
-
-      <main className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : 'ml-0'}`}>
+      <div className="flex-1 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : 'ml-0'}">
+        <Topbar />
         <div className="md:hidden flex items-center justify-between p-4 border-b border-border">
           <span className="font-bold text-lg">Asistente IA</span>
           <button onClick={() => setSidebarOpen(!isSidebarOpen)}>
@@ -72,7 +73,7 @@ const ClientPanel = () => {
             </Routes>
           </AnimatePresence>
         </div>
-      </main>
+      </div>
       <WelcomeMessage />
       <AppTutorial />
     </div>

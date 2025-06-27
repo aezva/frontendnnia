@@ -20,6 +20,10 @@ const navItems = [{
   label: 'Tickets',
   icon: Ticket
 }, {
+  href: '/citas',
+  label: 'Citas',
+  icon: Ticket
+}, {
   href: '/my-business',
   label: 'Mi Negocio',
   icon: Briefcase
