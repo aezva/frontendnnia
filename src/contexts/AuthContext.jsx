@@ -13,37 +13,16 @@ export const AuthProvider = ({ children }) => {
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Nueva función para obtener el id de business_info
-  const fetchBusinessInfoId = useCallback(async (clientId) => {
-    if (!clientId) return null;
-    try {
-      const { data, error } = await supabase
-        .from('business_info')
-        .select('id')
-        .eq('client_id', clientId)
-        .single();
-      if (error) {
-        console.error('Error fetching business_info:', error);
-        return null;
-      }
-      return data?.id || null;
-    } catch (error) {
-      console.error('Error in fetchBusinessInfoId:', error);
-      return null;
-    }
-  }, []);
-
   // Función para obtener los datos del cliente desde Supabase
   const fetchClientData = useCallback(async (userId) => {
     if (!userId) return null;
+    
     try {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
         .eq('user_id', userId)
         .single();
-
-      let clientData = data;
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -62,21 +41,19 @@ export const AuthProvider = ({ children }) => {
             console.error('Error creating client:', createError);
             return null;
           }
-          clientData = newClient;
+          return newClient;
         } else {
           console.error('Error fetching client:', error);
           return null;
         }
       }
-
-      // Buscar el id de business_info y añadirlo al objeto client
-      const businessInfoId = await fetchBusinessInfoId(clientData.id);
-      return { ...clientData, businessInfoId };
+      
+      return data;
     } catch (error) {
       console.error('Error in fetchClientData:', error);
       return null;
     }
-  }, [user?.email, fetchBusinessInfoId]);
+  }, [user?.email]);
 
   // Función para refrescar los datos del cliente
   const refreshClient = useCallback(async () => {

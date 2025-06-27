@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { useNavigate } from 'react-router-dom';
 
 export default function Topbar() {
   const { unreadCount, notifications, markAsRead } = useNotifications();
@@ -11,6 +12,7 @@ export default function Topbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const notifRef = useRef();
   const profileRef = useRef();
+  const navigate = useNavigate();
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -41,8 +43,17 @@ export default function Topbar() {
               ) : (
                 <ul>
                   {notifications.slice(0, 10).map(n => (
-                    <li key={n.id} className={`px-4 py-3 border-b last:border-b-0 cursor-pointer ${!n.read ? 'bg-blue-50' : ''}`}
-                        onClick={() => { markAsRead(n.id); setNotifOpen(false); }}>
+                    <li
+                      key={n.id}
+                      className={`px-4 py-3 border-b last:border-b-0 cursor-pointer ${!n.read ? 'bg-blue-50' : ''}`}
+                      onClick={() => {
+                        markAsRead(n.id);
+                        setNotifOpen(false);
+                        if (n.type === 'cita' || n.category === 'cita' || n.title?.toLowerCase().includes('cita')) {
+                          navigate('/citas');
+                        }
+                      }}
+                    >
                       <div className="font-semibold text-sm">{n.title}</div>
                       <div className="text-xs text-muted-foreground">{n.body}</div>
                       <div className="text-xs text-right text-gray-400">{new Date(n.created_at).toLocaleString()}</div>

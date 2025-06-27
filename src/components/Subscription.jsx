@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
+  CreditCard, 
   Zap, 
   Calendar, 
+  TrendingUp, 
   AlertCircle,
   Check,
+  X,
   Loader2,
   Crown,
   Star,
@@ -18,8 +21,13 @@ import { Helmet } from 'react-helmet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { 
+  PLANS, 
+  TOKEN_PACKS,
+  createSubscriptionCheckout,
+  createTokenCheckout,
   getCurrentSubscription,
-  consumeTokens
+  cancelSubscription,
+  updateSubscription
 } from '@/services/stripeService';
 
 const Subscription = () => {
@@ -27,6 +35,8 @@ const Subscription = () => {
   const { toast } = useToast();
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
 
   useEffect(() => {
     if (client) {
@@ -51,10 +61,100 @@ const Subscription = () => {
     }
   };
 
+  const handleSubscribe = async (planKey) => {
+    try {
+      setProcessing(true);
+      const plan = PLANS[planKey];
+      await createSubscriptionCheckout(plan.priceId, client.id);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBuyTokens = async (packKey) => {
+    try {
+      setProcessing(true);
+      const pack = TOKEN_PACKS[packKey];
+      await createTokenCheckout(pack.priceId, client.id);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!subscription?.stripe_subscription_id) return;
+    
+    try {
+      setProcessing(true);
+      await cancelSubscription(subscription.stripe_subscription_id);
+      toast({
+        title: 'Suscripción cancelada',
+        description: 'Tu suscripción se cancelará al final del período actual'
+      });
+      await loadSubscription();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleUpgradePlan = async (newPlanKey) => {
+    if (!subscription?.stripe_subscription_id) return;
+    
+    try {
+      setProcessing(true);
+      const newPlan = PLANS[newPlanKey];
+      await updateSubscription(subscription.stripe_subscription_id, newPlan.priceId);
+      toast({
+        title: 'Plan actualizado',
+        description: 'Tu plan se actualizará en el próximo período de facturación'
+      });
+      await loadSubscription();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const getPlanInfo = (planKey) => {
+    return PLANS[planKey] || null;
+  };
+
   const getTokenUsagePercentage = () => {
     if (!subscription) return 0;
-    const totalTokens = 10000; // Plan gratuito
-    return ((totalTokens - subscription.tokens_remaining) / totalTokens) * 100;
+    const plan = getPlanInfo(subscription.plan?.toLowerCase());
+    if (!plan) return 0;
+    return ((plan.tokens - subscription.tokens_remaining) / plan.tokens) * 100;
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   const formatTokens = (tokens) => {
@@ -77,7 +177,7 @@ const Subscription = () => {
   return (
     <>
       <Helmet>
-        <title>Suscripción - NNIA</title>
+        <title>Suscripción - Asistente IA</title>
       </Helmet>
       
       <div className="space-y-8">
@@ -85,8 +185,14 @@ const Subscription = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Suscripción</h1>
-            <p className="text-muted-foreground">Tu plan actual y uso de tokens</p>
+            <p className="text-muted-foreground">Gestiona tu plan y tokens</p>
           </div>
+          {!subscription && (
+            <Button onClick={() => setShowPlans(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+              <Crown className="mr-2 h-4 w-4" />
+              Ver Planes
+            </Button>
+          )}
         </div>
 
         {/* Estado actual de la suscripción */}
@@ -94,133 +200,202 @@ const Subscription = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
+            className="grid gap-6 lg:grid-cols-2"
           >
-            {/* Plan actual */}
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+            {/* Información del plan */}
+            <Card className="bg-card/50">
               <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-primary" />
+                  Plan Actual
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                      <Star className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">Plan Gratuito</CardTitle>
-                      <p className="text-sm text-muted-foreground">Plan básico con tokens limitados</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                    Activo
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium">Tokens restantes:</span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatTokens(subscription.tokens_remaining)} / 10K
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium">Renovación:</span>
-                    <span className="text-sm text-muted-foreground">Mensual</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Rocket className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium">Estado:</span>
-                    <span className="text-sm text-muted-foreground capitalize">
-                      {subscription.status}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Barra de progreso de tokens */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Uso de tokens</span>
-                    <span>{getTokenUsagePercentage().toFixed(1)}%</span>
-                  </div>
-                  <Progress value={getTokenUsagePercentage()} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Información adicional */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Información del Plan</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Características incluidas:</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-center gap-2">
-                        <Check className="h-3 w-3 text-green-600" />
-                        10,000 tokens por mes
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="h-3 w-3 text-green-600" />
-                        Asistente IA básico
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="h-3 w-3 text-green-600" />
-                        Soporte por email
-                      </li>
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Próximamente:</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-center gap-2">
-                        <Crown className="h-3 w-3 text-yellow-600" />
-                        Planes premium
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Crown className="h-3 w-3 text-yellow-600" />
-                        Más tokens
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Crown className="h-3 w-3 text-yellow-600" />
-                        Funciones avanzadas
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Aviso de desarrollo */}
-            <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/20">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                      Sistema de pagos en desarrollo
-                    </h4>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                      Actualmente estamos trabajando en la integración de pagos. 
-                      Por ahora, disfruta del plan gratuito con 10,000 tokens mensuales.
+                    <h3 className="font-semibold text-lg">{subscription.plan}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      ${getPlanInfo(subscription.plan?.toLowerCase())?.price}/mes
                     </p>
                   </div>
+                  <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'}>
+                    {subscription.status === 'active' ? 'Activo' : subscription.status}
+                  </Badge>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Renovación</span>
+                    <span>{formatDate(subscription.current_period_end)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Estado</span>
+                    <span className="capitalize">{subscription.status}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowPlans(true)}
+                  >
+                    Cambiar Plan
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleCancelSubscription}
+                    disabled={processing}
+                  >
+                    {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cancelar'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Uso de tokens */}
+            <Card className="bg-card/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  Tokens Disponibles
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Tokens restantes</span>
+                    <span className="font-medium">{formatTokens(subscription.tokens_remaining)}</span>
+                  </div>
+                  <Progress value={getTokenUsagePercentage()} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {formatTokens(getPlanInfo(subscription.plan?.toLowerCase())?.tokens - subscription.tokens_remaining)} de {formatTokens(getPlanInfo(subscription.plan?.toLowerCase())?.tokens)} tokens usados
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    size="sm"
+                    onClick={() => handleBuyTokens('pack1')}
+                    disabled={processing}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : `+${formatTokens(TOKEN_PACKS.pack1.tokens)}`}
+                  </Button>
+                  <Button 
+                    size="sm"
+                    onClick={() => handleBuyTokens('pack2')}
+                    disabled={processing}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : `+${formatTokens(TOKEN_PACKS.pack2.tokens)}`}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
         ) : (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                <p className="text-muted-foreground">Cargando información de suscripción...</p>
+          <Card className="bg-card/50">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-8 w-8 text-muted-foreground" />
               </div>
+              <h3 className="text-lg font-semibold mb-2">Sin suscripción activa</h3>
+              <p className="text-muted-foreground mb-4">
+                Selecciona un plan para empezar a usar tu asistente IA
+              </p>
+              <Button onClick={() => setShowPlans(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                Ver Planes Disponibles
+              </Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Modal de planes */}
+        {showPlans && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Planes Disponibles</h2>
+                <Button variant="ghost" size="sm" onClick={() => setShowPlans(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-3">
+                {Object.entries(PLANS).map(([key, plan]) => (
+                  <Card key={key} className="relative">
+                    {key === 'pro' && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                          <Star className="h-3 w-3 mr-1" />
+                          Popular
+                        </Badge>
+                      </div>
+                    )}
+                    <CardHeader className="text-center">
+                      <CardTitle className="flex items-center justify-center gap-2">
+                        {key === 'starter' && <Zap className="h-5 w-5" />}
+                        {key === 'pro' && <Star className="h-5 w-5" />}
+                        {key === 'ultra' && <Rocket className="h-5 w-5" />}
+                        {plan.name}
+                      </CardTitle>
+                      <div className="text-3xl font-bold">${plan.price}<span className="text-sm font-normal text-muted-foreground">/mes</span></div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {plan.features.map((feature, index) => (
+                          <div key={index} className="flex items-center gap-2 text-sm">
+                            <Check className="h-4 w-4 text-green-500" />
+                            {feature}
+                          </div>
+                        ))}
+                      </div>
+                      <Button 
+                        className="w-full"
+                        onClick={() => handleSubscribe(key)}
+                        disabled={processing}
+                      >
+                        {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Seleccionar Plan'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Packs de tokens */}
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4">Tokens Adicionales</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {Object.entries(TOKEN_PACKS).map(([key, pack]) => (
+                    <Card key={key}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold">{pack.name}</h4>
+                            <p className="text-sm text-muted-foreground">${pack.price} USD</p>
+                          </div>
+                          <Button 
+                            size="sm"
+                            onClick={() => handleBuyTokens(key)}
+                            disabled={processing}
+                          >
+                            {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Comprar'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </div>
     </>

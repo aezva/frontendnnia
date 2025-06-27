@@ -19,15 +19,16 @@ const APPOINTMENT_TYPES = [
 
 const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-const DEFAULT_AVAILABILITY = { days: [], hours: '', types: ['phone', 'office', 'video'] };
-
 const Appointments = () => {
   const { client, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState([]);
-  const [availability, setAvailability] = useState(DEFAULT_AVAILABILITY);
-  const [error, setError] = useState(null);
+  const [availability, setAvailability] = useState({
+    days: [],
+    hours: '',
+    types: ['phone', 'office', 'video'],
+  });
   const [saving, setSaving] = useState(false);
   const [hasAvailability, setHasAvailability] = useState(false);
 
@@ -158,9 +159,6 @@ const Appointments = () => {
               <CardDescription>Elige los días, horarios y tipos de cita que NNIA puede ofrecer a tus clientes.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {error && (
-                <div className="mb-4 p-2 bg-red-100 text-red-800 rounded">{error}</div>
-              )}
               <AppointmentPreferencesForm
                 availability={availability}
                 setAvailability={setAvailability}

@@ -105,7 +105,7 @@ const Onboarding = () => {
       case 1:
         return <Step2 formData={formData} handleInputChange={handleInputChange} />;
       case 2:
-        return <AppointmentPreferencesForm availability={availability} setAvailability={setAvailability} saving={false} />;
+        return <AppointmentPreferencesForm availability={availability} setAvailability={setAvailability} saving={false} onSave={() => {}} />;
       case 3:
         return <Step3 />;
       default:

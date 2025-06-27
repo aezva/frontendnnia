@@ -1,3 +1,4 @@
+import stripePromise from '@/lib/stripeClient';
 import { supabase } from '@/lib/supabaseClient';
 
 // Configuración de planes y precios
@@ -47,7 +48,69 @@ export const TOKEN_PACKS = {
   }
 };
 
-// Obtener suscripción actual del cliente (solo plan gratuito por ahora)
+// Crear sesión de checkout para suscripción
+export const createSubscriptionCheckout = async (priceId, clientId) => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        priceId,
+        clientId,
+        mode: 'subscription'
+      }),
+    });
+
+    const { sessionId } = await response.json();
+    const stripe = await stripePromise;
+    
+    const { error } = await stripe.redirectToCheckout({
+      sessionId,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    throw error;
+  }
+};
+
+// Crear sesión de checkout para compra de tokens
+export const createTokenCheckout = async (priceId, clientId) => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        priceId,
+        clientId,
+        mode: 'payment'
+      }),
+    });
+
+    const { sessionId } = await response.json();
+    const stripe = await stripePromise;
+    
+    const { error } = await stripe.redirectToCheckout({
+      sessionId,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  } catch (error) {
+    console.error('Error creating token checkout session:', error);
+    throw error;
+  }
+};
+
+// Obtener suscripción actual del cliente
 export const getCurrentSubscription = async (clientId) => {
   try {
     const { data, error } = await supabase
@@ -86,7 +149,60 @@ export const getCurrentSubscription = async (clientId) => {
   }
 };
 
-// Consumir tokens (solo verificación local)
+// Cancelar suscripción
+export const cancelSubscription = async (subscriptionId) => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/cancel-subscription`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscriptionId,
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Error canceling subscription');
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    throw error;
+  }
+};
+
+// Actualizar suscripción
+export const updateSubscription = async (subscriptionId, newPriceId) => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/update-subscription`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscriptionId,
+        newPriceId,
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Error updating subscription');
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    throw error;
+  }
+};
+
+// Consumir tokens
 export const consumeTokens = async (clientId, messageLength) => {
   try {
     const estimatedTokens = Math.ceil(messageLength * 1.2);
@@ -126,23 +242,19 @@ export const consumeTokens = async (clientId, messageLength) => {
   }
 };
 
-// Funciones placeholder para Stripe (deshabilitadas temporalmente)
-export const createSubscriptionCheckout = async (priceId, clientId) => {
-  throw new Error('Stripe integration temporarily disabled');
-};
-
-export const createTokenCheckout = async (priceId, clientId) => {
-  throw new Error('Stripe integration temporarily disabled');
-};
-
-export const cancelSubscription = async (subscriptionId) => {
-  throw new Error('Stripe integration temporarily disabled');
-};
-
-export const updateSubscription = async (subscriptionId, newPriceId) => {
-  throw new Error('Stripe integration temporarily disabled');
-};
-
+// Obtener historial de pagos
 export const getPaymentHistory = async (clientId) => {
-  return []; // Retorna array vacío por ahora
+  try {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/payment-history?clientId=${clientId}`);
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Error fetching payment history');
+    }
+
+    return result.payments;
+  } catch (error) {
+    console.error('Error fetching payment history:', error);
+    throw error;
+  }
 }; 

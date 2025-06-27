@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Phone, MapPin, Video, CheckCircle2 } from 'lucide-react';
+import { Loader2, Phone, MapPin, Video } from 'lucide-react';
 
 const APPOINTMENT_TYPES = [
   { value: 'phone', label: 'Llamada Telefónica', icon: <Phone className="h-4 w-4 inline" /> },
@@ -41,16 +41,7 @@ export default function AppointmentPreferencesForm({ availability, setAvailabili
         <Label>Días disponibles</Label>
         <div className="flex flex-wrap gap-2 mt-2">
           {WEEKDAYS.map(day => (
-            <Button
-              key={day}
-              type="button"
-              variant={availability.days.includes(day) ? 'default' : 'outline'}
-              className={availability.days.includes(day) ? 'ring-2 ring-primary font-bold' : ''}
-              onClick={() => handleToggleDay(day)}
-            >
-              {availability.days.includes(day) && <CheckCircle2 className="inline mr-1 text-primary" size={18} />}
-              {day}
-            </Button>
+            <Button key={day} type="button" variant={availability.days.includes(day) ? 'default' : 'outline'} onClick={() => handleToggleDay(day)}>{day}</Button>
           ))}
         </div>
       </div>
@@ -68,28 +59,11 @@ export default function AppointmentPreferencesForm({ availability, setAvailabili
         <Label>Tipos de cita disponibles</Label>
         <div className="flex flex-wrap gap-2 mt-2">
           {APPOINTMENT_TYPES.map(type => (
-            <Button
-              key={type.value}
-              type="button"
-              variant={availability.types.includes(type.value) ? 'default' : 'outline'}
-              className={availability.types.includes(type.value) ? 'ring-2 ring-primary font-bold' : ''}
-              onClick={() => handleToggleType(type.value)}
-            >
-              {availability.types.includes(type.value) && <CheckCircle2 className="inline mr-1 text-primary" size={18} />}
-              {type.icon} {type.label}
-            </Button>
+            <Button key={type.value} type="button" variant={availability.types.includes(type.value) ? 'default' : 'outline'} onClick={() => handleToggleType(type.value)}>{type.icon} {type.label}</Button>
           ))}
         </div>
       </div>
-      {onSave && (
-        <Button
-          onClick={onSave}
-          disabled={saving}
-          className="w-full mt-4 py-3 text-lg font-bold bg-primary text-white hover:bg-primary/90"
-        >
-          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Guardar cambios de disponibilidad'}
-        </Button>
-      )}
+      <Button onClick={onSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar Disponibilidad'}</Button>
     </div>
   );
 } 

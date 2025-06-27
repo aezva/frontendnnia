@@ -1,13 +1,11 @@
 import React from 'react';
-import { NavLink, useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, Ticket, Briefcase, Bot, CreditCard, Settings, LogOut, ChevronRight, Calendar } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, MessageSquare, Ticket, Briefcase, Bot, CreditCard, Settings, LogOut, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotifications } from '../contexts/NotificationsContext';
-import { useState, useRef, useEffect } from 'react';
 
 const navItems = [{
   href: '/',
@@ -21,10 +19,6 @@ const navItems = [{
   href: '/tickets',
   label: 'Tickets',
   icon: Ticket
-}, {
-  href: '/citas',
-  label: 'Citas',
-  icon: Calendar
 }, {
   href: '/my-business',
   label: 'Mi Negocio',
@@ -46,19 +40,6 @@ const Sidebar = ({
   const location = useLocation();
   const { toast } = useToast();
   const { user, client } = useAuth();
-  const { unreadCount, notifications, markAsRead } = useNotifications();
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef();
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const handleNotImplemented = () => {
     toast({
@@ -118,6 +99,16 @@ const Sidebar = ({
               <LogOut className="mr-3 h-5 w-5" />
               <span>Cerrar Sesión</span>
             </button>
+          </div>
+          <div className="flex items-center mt-6 p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer" onClick={handleNotImplemented}>
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={client?.profile_image_url} alt={client?.name || user?.email} />
+              <AvatarFallback>{getInitials(client?.name || user?.email)}</AvatarFallback>
+            </Avatar>
+            <div className="ml-3">
+              <p className="text-sm font-semibold text-foreground">{client?.name || 'Usuario'}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+            </div>
           </div>
         </div>
       </div>

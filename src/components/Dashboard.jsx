@@ -7,13 +7,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import ChatAssistant from './ChatAssistant';
-import { useNavigate } from 'react-router-dom';
 import { fetchAppointments } from '@/services/appointmentsService';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { client } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalConversations: 0,
     openTickets: 0,
@@ -22,6 +21,7 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [nextAppointments, setNextAppointments] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -60,21 +60,30 @@ const Dashboard = () => {
         // Por ahora, usar un valor fijo ya que no tenemos customer_id en messages
         const uniqueCustomerCount = 0;
 
-        // Obtener próximas citas (solo 2 más próximas, status pendiente)
-        const appointments = await fetchAppointments(client.id);
-        const now = new Date();
-        const upcoming = (appointments || [])
-          .filter(a => a.status === 'pending' && new Date(a.date + 'T' + a.time) >= now)
-          .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time))
-          .slice(0, 2);
-        setNextAppointments(upcoming);
-
         setStats({
           totalConversations: messageCount || 0,
           openTickets: openTicketCount || 0,
           totalCustomers: uniqueCustomerCount,
           resolutionRate: resolutionRate
         });
+
+        // Obtener próximas citas pendientes
+        const appointments = await fetchAppointments(client.id);
+        const now = new Date();
+        const pending = appointments
+          .filter(a => (a.status === 'pending' || !a.status))
+          .filter(a => {
+            // Considera solo citas futuras
+            const dateTime = new Date(`${a.date}T${a.time}`);
+            return dateTime >= now;
+          })
+          .sort((a, b) => {
+            const dateA = new Date(`${a.date}T${a.time}`);
+            const dateB = new Date(`${b.date}T${b.time}`);
+            return dateA - dateB;
+          })
+          .slice(0, 2);
+        setNextAppointments(pending);
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -89,7 +98,7 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, [client, toast, navigate]);
+  }, [client, toast]);
 
   const statsData = [
     { 
@@ -181,48 +190,11 @@ const Dashboard = () => {
                   <p className={`text-xs ${stat.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
                     {stat.change} vs el mes pasado
                   </p>
-                  <button
-                    className="mt-2 text-xs text-blue-600 hover:underline bg-transparent border-none p-0 cursor-pointer"
-                    onClick={() => {
-                      if (stat.title.includes('Conversaciones')) navigate('/messages');
-                      else if (stat.title.includes('Tickets')) navigate('/tickets');
-                      else if (stat.title.includes('Clientes')) navigate('/my-business');
-                    }}
-                  >
-                    Ver todas
-                  </button>
                 </CardContent>
               </Card>
             </motion.div>
           ))}
         </motion.div>
-
-        {/* Próximas citas */}
-        <Card className="bg-card/50 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold">Próximas citas</CardTitle>
-            <button
-              className="text-xs text-blue-600 hover:underline bg-transparent border-none p-0 cursor-pointer"
-              onClick={() => navigate('/citas')}
-            >
-              Ver todas
-            </button>
-          </CardHeader>
-          <CardContent>
-            {nextAppointments.length === 0 ? (
-              <div className="text-muted-foreground text-sm">No hay citas próximas.</div>
-            ) : (
-              <ul className="divide-y divide-border">
-                {nextAppointments.map((appt, idx) => (
-                  <li key={appt.id || idx} className="py-3 flex flex-col gap-1">
-                    <div className="font-medium text-sm">{appt.name} ({appt.email})</div>
-                    <div className="text-xs text-muted-foreground">{appt.type} - {appt.date} {appt.time}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
 
         <motion.div
           className="grid gap-6 lg:grid-cols-2"
@@ -230,6 +202,28 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.5 }}
         >
+          {/* Próximas citas pendientes */}
+          <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle>Próximas Citas Pendientes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {nextAppointments.length === 0 ? (
+                <div className="text-muted-foreground text-center p-4">No hay citas pendientes próximas.</div>
+              ) : (
+                <ul className="space-y-4">
+                  {nextAppointments.map(appt => (
+                    <li key={appt.id} className="border rounded-lg p-4 bg-white/80 flex flex-col gap-1 cursor-pointer hover:bg-blue-50 transition" onClick={() => navigate('/citas')}>
+                      <div className="font-semibold">{appt.name} ({appt.email})</div>
+                      <div className="text-sm text-muted-foreground">{appt.type} - {appt.date} {appt.time}</div>
+                      <div className="text-xs text-muted-foreground">Origen: {appt.origin}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+          {/* Conversaciones Recientes */}
           <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>Conversaciones Recientes</CardTitle>
@@ -239,6 +233,7 @@ const Dashboard = () => {
               <p className="text-sm">(Función en desarrollo)</p>
             </CardContent>
           </Card>
+          {/* Rendimiento del Asistente */}
           <Card className="lg:col-span-1 bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>Rendimiento del Asistente</CardTitle>
