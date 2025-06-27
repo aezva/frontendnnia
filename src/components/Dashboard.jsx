@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import ChatAssistant from './ChatAssistant';
 import { fetchAppointments } from '@/services/appointmentsService';
 import { useNavigate } from 'react-router-dom';
+import { getRealDateReliable } from '@/lib/utils';
 
 const Dashboard = () => {
   const { client } = useAuth();
@@ -21,14 +22,27 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [nextAppointments, setNextAppointments] = useState([]);
+  const [realDate, setRealDate] = useState(null);
   const navigate = useNavigate();
+
+  // Obtener fecha real al cargar el componente
+  useEffect(() => {
+    const getDate = async () => {
+      try {
+        const date = await getRealDateReliable();
+        setRealDate(date);
+        console.log('🌐 Dashboard: Fecha real obtenida:', date);
+      } catch (error) {
+        console.error('Error obteniendo fecha real:', error);
+        setRealDate(new Date());
+      }
+    };
+    getDate();
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!client) return;
-      
-      console.log('🔍 Dashboard: Iniciando fetchDashboardData');
-      console.log('🔍 Dashboard: client.id =', client.id);
+      if (!client || !realDate) return;
       
       setLoading(true);
       try {
@@ -70,26 +84,15 @@ const Dashboard = () => {
           resolutionRate: resolutionRate
         });
 
-        // Obtener próximas citas pendientes
-        console.log('🔍 Dashboard: Llamando a fetchAppointments con clientId =', client.id);
+        // Obtener próximas citas pendientes usando fecha real
         const appointments = await fetchAppointments(client.id);
-        console.log('🔍 Dashboard: Citas obtenidas del backend:', appointments);
-        
-        const now = new Date();
-        console.log('🔍 Dashboard: Fecha actual =', now);
         
         const pending = appointments
+          .filter(a => (a.status === 'pending' || !a.status))
           .filter(a => {
-            console.log('🔍 Dashboard: Filtrando cita:', a);
-            console.log('🔍 Dashboard: Status de la cita:', a.status);
-            return (a.status === 'pending' || !a.status);
-          })
-          .filter(a => {
-            // Considera solo citas futuras
+            // Considera solo citas futuras usando fecha real
             const dateTime = new Date(`${a.date}T${a.time}`);
-            console.log('🔍 Dashboard: Fecha/hora de la cita:', dateTime);
-            console.log('🔍 Dashboard: ¿Es futura?', dateTime >= now);
-            return dateTime >= now;
+            return dateTime >= realDate;
           })
           .sort((a, b) => {
             const dateA = new Date(`${a.date}T${a.time}`);
@@ -98,7 +101,6 @@ const Dashboard = () => {
           })
           .slice(0, 2);
         
-        console.log('🔍 Dashboard: Citas pendientes futuras filtradas:', pending);
         setNextAppointments(pending);
 
       } catch (error) {
@@ -116,19 +118,16 @@ const Dashboard = () => {
     fetchDashboardData();
     
     // Refrescar citas cada 20 segundos para mostrar nuevas citas en tiempo real
-    if (client) {
+    if (client && realDate) {
       const interval = setInterval(async () => {
         try {
-          console.log('🔄 Dashboard: Refrescando citas automáticamente');
           const appointments = await fetchAppointments(client.id);
-          console.log('🔄 Dashboard: Citas obtenidas en refresh:', appointments);
           
-          const now = new Date();
           const pending = appointments
             .filter(a => (a.status === 'pending' || !a.status))
             .filter(a => {
               const dateTime = new Date(`${a.date}T${a.time}`);
-              return dateTime >= now;
+              return dateTime >= realDate;
             })
             .sort((a, b) => {
               const dateA = new Date(`${a.date}T${a.time}`);
@@ -137,7 +136,6 @@ const Dashboard = () => {
             })
             .slice(0, 2);
           
-          console.log('🔄 Dashboard: Citas pendientes después del refresh:', pending);
           setNextAppointments(pending);
         } catch (error) {
           console.error('Error refreshing appointments:', error);
@@ -146,7 +144,7 @@ const Dashboard = () => {
 
       return () => clearInterval(interval);
     }
-  }, [client, toast]);
+  }, [client, realDate, toast]);
 
   const statsData = [
     { 
