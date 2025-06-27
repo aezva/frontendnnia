@@ -38,7 +38,7 @@ const ChatAssistant = ({ userName }) => {
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/nnia/respond`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/nnia/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
