@@ -27,6 +27,9 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       if (!client) return;
       
+      console.log('🔍 Dashboard: Iniciando fetchDashboardData');
+      console.log('🔍 Dashboard: client.id =', client.id);
+      
       setLoading(true);
       try {
         // Obtener estadísticas de mensajes
@@ -68,13 +71,24 @@ const Dashboard = () => {
         });
 
         // Obtener próximas citas pendientes
+        console.log('🔍 Dashboard: Llamando a fetchAppointments con clientId =', client.id);
         const appointments = await fetchAppointments(client.id);
+        console.log('🔍 Dashboard: Citas obtenidas del backend:', appointments);
+        
         const now = new Date();
+        console.log('🔍 Dashboard: Fecha actual =', now);
+        
         const pending = appointments
-          .filter(a => (a.status === 'pending' || !a.status))
+          .filter(a => {
+            console.log('🔍 Dashboard: Filtrando cita:', a);
+            console.log('🔍 Dashboard: Status de la cita:', a.status);
+            return (a.status === 'pending' || !a.status);
+          })
           .filter(a => {
             // Considera solo citas futuras
             const dateTime = new Date(`${a.date}T${a.time}`);
+            console.log('🔍 Dashboard: Fecha/hora de la cita:', dateTime);
+            console.log('🔍 Dashboard: ¿Es futura?', dateTime >= now);
             return dateTime >= now;
           })
           .sort((a, b) => {
@@ -83,6 +97,8 @@ const Dashboard = () => {
             return dateA - dateB;
           })
           .slice(0, 2);
+        
+        console.log('🔍 Dashboard: Citas pendientes futuras filtradas:', pending);
         setNextAppointments(pending);
 
       } catch (error) {
@@ -103,7 +119,10 @@ const Dashboard = () => {
     if (client) {
       const interval = setInterval(async () => {
         try {
+          console.log('🔄 Dashboard: Refrescando citas automáticamente');
           const appointments = await fetchAppointments(client.id);
+          console.log('🔄 Dashboard: Citas obtenidas en refresh:', appointments);
+          
           const now = new Date();
           const pending = appointments
             .filter(a => (a.status === 'pending' || !a.status))
@@ -117,6 +136,8 @@ const Dashboard = () => {
               return dateA - dateB;
             })
             .slice(0, 2);
+          
+          console.log('🔄 Dashboard: Citas pendientes después del refresh:', pending);
           setNextAppointments(pending);
         } catch (error) {
           console.error('Error refreshing appointments:', error);
