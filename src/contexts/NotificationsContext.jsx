@@ -2,7 +2,14 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { fetchNotifications, markNotificationRead } from '../services/notificationsService';
 import { useAuth } from './AuthContext';
 
-const NotificationsContext = createContext();
+// Valor por defecto para evitar undefined
+const NotificationsContext = createContext({
+  notifications: [],
+  unreadCount: 0,
+  loading: false,
+  markAsRead: () => {},
+  reload: () => {},
+});
 
 export function NotificationsProvider({ children }) {
   const { client } = useAuth();
@@ -10,7 +17,11 @@ export function NotificationsProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   const loadNotifications = useCallback(async () => {
-    if (!client || !client.businessInfoId) return;
+    // Si no hay client o businessInfoId, simplemente deja notificaciones vacías
+    if (!client || !client.businessInfoId) {
+      setNotifications([]);
+      return;
+    }
     setLoading(true);
     try {
       const notifs = await fetchNotifications(client.businessInfoId);
