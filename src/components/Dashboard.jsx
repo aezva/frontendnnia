@@ -98,6 +98,33 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
+    
+    // Refrescar citas cada 20 segundos para mostrar nuevas citas en tiempo real
+    if (client) {
+      const interval = setInterval(async () => {
+        try {
+          const appointments = await fetchAppointments(client.id);
+          const now = new Date();
+          const pending = appointments
+            .filter(a => (a.status === 'pending' || !a.status))
+            .filter(a => {
+              const dateTime = new Date(`${a.date}T${a.time}`);
+              return dateTime >= now;
+            })
+            .sort((a, b) => {
+              const dateA = new Date(`${a.date}T${a.time}`);
+              const dateB = new Date(`${b.date}T${b.time}`);
+              return dateA - dateB;
+            })
+            .slice(0, 2);
+          setNextAppointments(pending);
+        } catch (error) {
+          console.error('Error refreshing appointments:', error);
+        }
+      }, 20000); // 20 segundos
+
+      return () => clearInterval(interval);
+    }
   }, [client, toast]);
 
   const statsData = [
