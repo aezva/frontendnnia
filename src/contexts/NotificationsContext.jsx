@@ -17,14 +17,14 @@ export function NotificationsProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   const loadNotifications = useCallback(async () => {
-    // Si no hay client o businessInfoId, simplemente deja notificaciones vacías
-    if (!client || !client.businessInfoId) {
+    // Si no hay client, simplemente deja notificaciones vacías
+    if (!client) {
       setNotifications([]);
       return;
     }
     setLoading(true);
     try {
-      const notifs = await fetchNotifications(client.businessInfoId);
+      const notifs = await fetchNotifications(client.id);
       setNotifications(Array.isArray(notifs) ? notifs : []);
     } catch {
       setNotifications([]);
