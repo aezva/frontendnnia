@@ -45,9 +45,8 @@ const Dashboard = () => {
       const today = await getCurrentDate();
       console.log('📅 Dashboard: Fecha actual:', today);
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('No hay usuario autenticado');
+      if (!client) {
+        console.error('No hay cliente autenticado');
         return;
       }
 
@@ -55,7 +54,7 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from('appointments')
         .select('*')
-        .eq('business_id', user.id)
+        .eq('client_id', client.id)
         .gte('appointment_date', today.toISOString().split('T')[0])
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true })
