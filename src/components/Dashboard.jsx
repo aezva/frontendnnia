@@ -9,7 +9,9 @@ import { useToast } from '@/components/ui/use-toast';
 import ChatAssistant from './ChatAssistant';
 import { fetchAppointments } from '@/services/appointmentsService';
 import { useNavigate } from 'react-router-dom';
-import { getRealDateReliable } from '@/lib/utils';
+import { getCurrentDate, formatDate } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const Dashboard = () => {
   const { client } = useAuth();
@@ -22,108 +24,71 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [nextAppointments, setNextAppointments] = useState([]);
-  const [realDate, setRealDate] = useState(null);
+  const [currentDate, setCurrentDate] = useState(new Date());
   const navigate = useNavigate();
 
-  // Obtener fecha real al cargar el componente
   useEffect(() => {
-    const getDate = async () => {
-      try {
-        const date = await getRealDateReliable();
-        setRealDate(date);
-        console.log('🌐 Dashboard: Fecha real obtenida:', date);
-      } catch (error) {
-        console.error('Error obteniendo fecha real:', error);
-        setRealDate(new Date());
-      }
-    };
-    getDate();
+    fetchAppointments();
+    // Actualizar fecha cada minuto
+    const interval = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  // Cargar datos del dashboard
-  useEffect(() => {
-    if (!client || !realDate) return;
-
-    const fetchDashboardData = async () => {
+  const fetchAppointments = async () => {
+    try {
       setLoading(true);
-      try {
-        // Obtener citas
-        const appointments = await fetchAppointments(client.id);
-        
-        // Obtener estadísticas básicas
-        const totalConversations = appointments.length;
-        const openTickets = appointments.filter(a => a.status === 'pending').length;
-        const totalCustomers = new Set(appointments.map(a => a.email)).size;
-        const resolutionRate = appointments.length > 0 ? Math.round((appointments.filter(a => a.status === 'completed').length / appointments.length) * 100) : 0;
-
-        setStats({
-          totalConversations,
-          openTickets,
-          totalCustomers,
-          resolutionRate
-        });
-
-        // Filtrar citas pendientes futuras
-        const pending = appointments
-          .filter(a => (a.status === 'pending' || !a.status))
-          .filter(a => {
-            // Considera solo citas futuras usando fecha real
-            const dateTime = new Date(`${a.date}T${a.time}`);
-            return dateTime >= realDate;
-          })
-          .sort((a, b) => {
-            const dateA = new Date(`${a.date}T${a.time}`);
-            const dateB = new Date(`${b.date}T${b.time}`);
-            return dateA - dateB;
-          })
-          .slice(0, 2);
-        
-        setNextAppointments(pending);
-
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        toast({
-          title: 'Error',
-          description: 'No se pudieron cargar las estadísticas',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-    
-    // Refrescar citas cada 20 segundos para mostrar nuevas citas en tiempo real
-    const interval = setInterval(() => {
-      const refreshAppointments = async () => {
-        try {
-          const appointments = await fetchAppointments(client.id);
-          
-          const pending = appointments
-            .filter(a => (a.status === 'pending' || !a.status))
-            .filter(a => {
-              const dateTime = new Date(`${a.date}T${a.time}`);
-              return dateTime >= realDate;
-            })
-            .sort((a, b) => {
-              const dateA = new Date(`${a.date}T${a.time}`);
-              const dateB = new Date(`${b.date}T${b.time}`);
-              return dateA - dateB;
-            })
-            .slice(0, 2);
-          
-          setNextAppointments(pending);
-        } catch (error) {
-          console.error('Error refreshing appointments:', error);
-        }
-      };
       
-      refreshAppointments();
-    }, 20000); // 20 segundos
+      // Obtener fecha actual
+      const today = await getCurrentDate();
+      console.log('📅 Dashboard: Fecha actual:', today);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No hay usuario autenticado');
+        return;
+      }
 
-    return () => clearInterval(interval);
-  }, [client, realDate, toast]);
+      // Obtener citas pendientes (hoy y futuras)
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('business_id', user.id)
+        .gte('appointment_date', today.toISOString().split('T')[0])
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true })
+        .limit(5);
+
+      if (error) {
+        console.error('Error fetching appointments:', error);
+        return;
+      }
+
+      setNextAppointments(data || []);
+    } catch (error) {
+      console.error('Error en fetchAppointments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (time) => {
+    return time.substring(0, 5); // HH:MM
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'pending': { label: 'Pendiente', variant: 'secondary' },
+      'confirmed': { label: 'Confirmada', variant: 'default' },
+      'cancelled': { label: 'Cancelada', variant: 'destructive' },
+      'completed': { label: 'Completada', variant: 'outline' }
+    };
+    
+    const config = statusConfig[status] || statusConfig['pending'];
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
 
   const statsData = [
     { 
@@ -193,8 +158,13 @@ const Dashboard = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">Un resumen de la actividad de tu asistente.</p>
+            <p className="text-muted-foreground">
+              {formatDate(currentDate)}
+            </p>
           </div>
+          <Button onClick={() => navigate('/appointments')}>
+            Ver todas las citas
+          </Button>
         </div>
 
         <motion.div
@@ -236,15 +206,33 @@ const Dashboard = () => {
               {nextAppointments.length === 0 ? (
                 <div className="text-muted-foreground text-center p-4">No hay citas pendientes próximas.</div>
               ) : (
-                <ul className="space-y-4">
-                  {nextAppointments.map(appt => (
-                    <li key={appt.id} className="border rounded-lg p-4 bg-white/80 flex flex-col gap-1 cursor-pointer hover:bg-blue-50 transition" onClick={() => navigate('/citas')}>
-                      <div className="font-semibold">{appt.name} ({appt.email})</div>
-                      <div className="text-sm text-muted-foreground">{appt.type} - {appt.date} {appt.time}</div>
-                      <div className="text-xs text-muted-foreground">Origen: {appt.origin}</div>
-                    </li>
+                <div className="space-y-4">
+                  {nextAppointments.slice(0, 5).map((appointment) => (
+                    <div
+                      key={appointment.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                      onClick={() => navigate('/appointments')}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="font-medium">{appointment.client_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {appointment.service_name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          {new Date(appointment.appointment_date).toLocaleDateString('es-ES')}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatTime(appointment.appointment_time)}
+                        </p>
+                        {getStatusBadge(appointment.status)}
+                      </div>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </CardContent>
           </Card>

@@ -178,3 +178,40 @@ export async function getRealDateReliable() {
 		}
 	}
 }
+
+// Función simplificada para obtener fecha actual
+export async function getCurrentDate() {
+	try {
+		// Intentar obtener fecha de internet
+		const response = await fetch('https://worldtimeapi.org/api/ip');
+		if (response.ok) {
+			const data = await response.json();
+			const realDate = new Date(data.datetime);
+			console.log('🌐 Fecha obtenida de internet:', realDate);
+			return realDate;
+		}
+	} catch (error) {
+		console.log('⚠️ No se pudo obtener fecha de internet, usando fecha local');
+	}
+	
+	// Fallback a fecha local
+	const localDate = new Date();
+	console.log('📅 Usando fecha local:', localDate);
+	return localDate;
+}
+
+// Función para formatear fecha
+export function formatDate(date) {
+	return date.toLocaleDateString('es-ES', {
+		weekday: 'long',
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric'
+	});
+}
+
+// Función para obtener fecha actual como string
+export function getCurrentDateString() {
+	const date = new Date();
+	return date.toISOString().split('T')[0]; // YYYY-MM-DD
+}
