@@ -40,53 +40,30 @@ const Dashboard = () => {
     getDate();
   }, []);
 
+  // Cargar datos del dashboard
   useEffect(() => {
+    if (!client || !realDate) return;
+
     const fetchDashboardData = async () => {
-      if (!client || !realDate) return;
-      
       setLoading(true);
       try {
-        // Obtener estadísticas de mensajes
-        const { count: messageCount } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', client.id);
-
-        // Obtener estadísticas de tickets
-        const { count: ticketCount } = await supabase
-          .from('tickets')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', client.id);
-
-        // Obtener tickets abiertos
-        const { count: openTicketCount } = await supabase
-          .from('tickets')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', client.id)
-          .eq('status', 'open');
-
-        // Calcular tasa de resolución (tickets cerrados / total tickets)
-        const { count: closedTicketCount } = await supabase
-          .from('tickets')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', client.id)
-          .eq('status', 'closed');
-
-        const resolutionRate = ticketCount > 0 ? Math.round((closedTicketCount / ticketCount) * 100) : 0;
-
-        // Por ahora, usar un valor fijo ya que no tenemos customer_id en messages
-        const uniqueCustomerCount = 0;
-
-        setStats({
-          totalConversations: messageCount || 0,
-          openTickets: openTicketCount || 0,
-          totalCustomers: uniqueCustomerCount,
-          resolutionRate: resolutionRate
-        });
-
-        // Obtener próximas citas pendientes usando fecha real
+        // Obtener citas
         const appointments = await fetchAppointments(client.id);
         
+        // Obtener estadísticas básicas
+        const totalConversations = appointments.length;
+        const openTickets = appointments.filter(a => a.status === 'pending').length;
+        const totalCustomers = new Set(appointments.map(a => a.email)).size;
+        const resolutionRate = appointments.length > 0 ? Math.round((appointments.filter(a => a.status === 'completed').length / appointments.length) * 100) : 0;
+
+        setStats({
+          totalConversations,
+          openTickets,
+          totalCustomers,
+          resolutionRate
+        });
+
+        // Filtrar citas pendientes futuras
         const pending = appointments
           .filter(a => (a.status === 'pending' || !a.status))
           .filter(a => {
@@ -118,8 +95,8 @@ const Dashboard = () => {
     fetchDashboardData();
     
     // Refrescar citas cada 20 segundos para mostrar nuevas citas en tiempo real
-    if (client && realDate) {
-      const interval = setInterval(async () => {
+    const interval = setInterval(() => {
+      const refreshAppointments = async () => {
         try {
           const appointments = await fetchAppointments(client.id);
           
@@ -140,10 +117,12 @@ const Dashboard = () => {
         } catch (error) {
           console.error('Error refreshing appointments:', error);
         }
-      }, 20000); // 20 segundos
+      };
+      
+      refreshAppointments();
+    }, 20000); // 20 segundos
 
-      return () => clearInterval(interval);
-    }
+    return () => clearInterval(interval);
   }, [client, realDate, toast]);
 
   const statsData = [

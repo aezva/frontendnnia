@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 
 const CHAT_SESSION_KEY = 'nnia_chat_messages';
+const THREAD_ID_KEY = 'nnia_thread_id';
 
 const ChatAssistant = ({ userName }) => {
   const { client } = useAuth();
@@ -20,7 +21,9 @@ const ChatAssistant = ({ userName }) => {
   });
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [threadId, setThreadId] = useState(null);
+  const [threadId, setThreadId] = useState(() => {
+    return sessionStorage.getItem(THREAD_ID_KEY) || null;
+  });
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -30,6 +33,12 @@ const ChatAssistant = ({ userName }) => {
   useEffect(() => {
     sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(messages));
   }, [messages]);
+
+  useEffect(() => {
+    if (threadId) {
+      sessionStorage.setItem(THREAD_ID_KEY, threadId);
+    }
+  }, [threadId]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -76,11 +85,13 @@ const ChatAssistant = ({ userName }) => {
   useEffect(() => {
     if (!client) {
       sessionStorage.removeItem(CHAT_SESSION_KEY);
+      sessionStorage.removeItem(THREAD_ID_KEY);
       setMessages([{
         id: 1,
         sender: 'assistant',
         text: `¡Buenas tardes, ${userName}! 👋\n\nPregunta o encuentra lo que quieras desde tu espacio de trabajo...`,
       }]);
+      setThreadId(null);
     }
   }, [client, userName]);
 
