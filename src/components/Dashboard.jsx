@@ -55,9 +55,9 @@ const Dashboard = () => {
         .from('appointments')
         .select('*')
         .eq('client_id', client.id)
-        .gte('appointment_date', today.toISOString().split('T')[0])
-        .order('appointment_date', { ascending: true })
-        .order('appointment_time', { ascending: true })
+        .gte('date', today.toISOString().split('T')[0])
+        .order('date', { ascending: true })
+        .order('time', { ascending: true })
         .limit(5);
 
       if (error) {
@@ -172,22 +172,57 @@ const Dashboard = () => {
           initial="hidden"
           animate="visible"
         >
-          {statsData.map((stat, index) => (
-            <motion.div key={index} variants={itemVariants}>
-              <Card className="bg-card/50 backdrop-blur-sm hover:border-primary/50 transition-colors duration-300">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-                  <stat.icon className="h-5 w-5 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stat.value}</div>
-                  <p className={`text-xs ${stat.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
-                    {stat.change} vs el mes pasado
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+          <motion.div variants={itemVariants}>
+            <Card className="bg-card/50 backdrop-blur-sm hover:border-primary/50 transition-colors duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Citas Pendientes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {nextAppointments.filter(a => a.status === 'pending').length}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <Card className="bg-card/50 backdrop-blur-sm hover:border-primary/50 transition-colors duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Citas Confirmadas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {nextAppointments.filter(a => a.status === 'confirmed').length}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <Card className="bg-card/50 backdrop-blur-sm hover:border-primary/50 transition-colors duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Citas Hoy</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {nextAppointments.filter(a => 
+                    a.date === currentDate.toISOString().split('T')[0]
+                  ).length}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <Card className="bg-card/50 backdrop-blur-sm hover:border-primary/50 transition-colors duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Citas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{nextAppointments.length}</div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </motion.div>
 
         <motion.div
@@ -214,18 +249,18 @@ const Dashboard = () => {
                     >
                       <div className="flex items-center space-x-4">
                         <div>
-                          <p className="font-medium">{appointment.client_name}</p>
+                          <p className="font-medium">{appointment.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {appointment.service_name}
+                            {appointment.type}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="font-medium">
-                          {new Date(appointment.appointment_date).toLocaleDateString('es-ES')}
+                          {new Date(appointment.date).toLocaleDateString('es-ES')}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {formatTime(appointment.appointment_time)}
+                          {formatTime(appointment.time)}
                         </p>
                         {getStatusBadge(appointment.status)}
                       </div>
