@@ -49,7 +49,7 @@ export default function Topbar() {
                       onClick={() => {
                         markAsRead(n.id);
                         setNotifOpen(false);
-                        if (n.type === 'cita' || n.category === 'cita' || n.title?.toLowerCase().includes('cita')) {
+                        if (n.type === 'appointment_created' || n.type === 'cita' || n.category === 'cita' || n.title?.toLowerCase().includes('cita')) {
                           navigate('/citas');
                         }
                       }}
