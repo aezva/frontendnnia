@@ -1,68 +1,67 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { fetchNotifications, markNotificationRead } from '../services/notificationsService';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { fetchNotifications, markNotificationRead } from '../services/notificationsService';
 
-// Valor por defecto para evitar undefined
-const NotificationsContext = createContext({
-  notifications: [],
-  unreadCount: 0,
-  loading: false,
-  markAsRead: () => {},
-  reload: () => {},
-});
+const NotificationsContext = createContext();
 
-export function NotificationsProvider({ children }) {
-  const { client } = useAuth();
+export const useNotifications = () => {
+  const context = useContext(NotificationsContext);
+  if (!context) {
+    throw new Error('useNotifications debe usarse dentro de NotificationsProvider');
+  }
+  return context;
+};
+
+export const NotificationsProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { client } = useAuth();
 
-  const loadNotifications = useCallback(async () => {
-    // Si no hay client, simplemente deja notificaciones vacías
-    if (!client) {
-      console.log('🔍 NotificationsContext: No hay client, notificaciones vacías');
+  const loadNotifications = async () => {
+    if (!client?.id) {
       setNotifications([]);
       return;
     }
-    
-    console.log('🔍 NotificationsContext: Cargando notificaciones para client:', client.id);
+
     setLoading(true);
     try {
       const notifs = await fetchNotifications(client.id);
-      console.log('🔍 NotificationsContext: Notificaciones recibidas:', notifs);
-      setNotifications(Array.isArray(notifs) ? notifs : []);
+      setNotifications(notifs);
     } catch (error) {
-      console.error('❌ NotificationsContext: Error cargando notificaciones:', error);
+      console.error('Error loading notifications:', error);
       setNotifications([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [client]);
+  };
 
   useEffect(() => {
-    console.log('🔍 NotificationsContext: useEffect ejecutado, client:', client?.id);
     loadNotifications();
-    if (!client) return;
-    const interval = setInterval(loadNotifications, 20000); // 20s
-    return () => clearInterval(interval);
-  }, [client, loadNotifications]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  }, [client?.id]);
 
   const markAsRead = async (id) => {
     try {
       await markNotificationRead(id);
-      setNotifications(notifs => notifs.map(n => n.id === id ? { ...n, read: true } : n));
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === id ? { ...notif, read: true } : notif
+        )
+      );
     } catch (error) {
-      console.error('❌ NotificationsContext: Error marcando notificación como leída:', error);
+      console.error('Error marking notification as read:', error);
     }
   };
 
+  const value = {
+    notifications,
+    loading,
+    loadNotifications,
+    markAsRead
+  };
+
   return (
-    <NotificationsContext.Provider value={{ notifications, unreadCount, loading, markAsRead, reload: loadNotifications }}>
+    <NotificationsContext.Provider value={value}>
       {children}
     </NotificationsContext.Provider>
   );
-}
-
-export function useNotifications() {
-  return useContext(NotificationsContext);
-} 
+}; 
