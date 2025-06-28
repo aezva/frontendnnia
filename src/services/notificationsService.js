@@ -5,7 +5,9 @@ export async function fetchNotifications(clientId) {
   console.log('🔍 fetchNotifications: Iniciando con clientId:', clientId);
   try {
     const res = await axios.get(`${API_URL}/nnia/notifications`, { params: { clientId } });
-    console.log('🔍 fetchNotifications: Respuesta recibida:', res.data);
+    console.log('🔍 fetchNotifications: Respuesta completa:', res);
+    console.log('🔍 fetchNotifications: res.data:', res.data);
+    console.log('🔍 fetchNotifications: res.data.notifications:', res.data.notifications);
     return res.data.notifications;
   } catch (error) {
     console.error('❌ fetchNotifications: Error:', error.response?.data || error.message);
