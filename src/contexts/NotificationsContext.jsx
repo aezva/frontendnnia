@@ -19,20 +19,26 @@ export function NotificationsProvider({ children }) {
   const loadNotifications = useCallback(async () => {
     // Si no hay client, simplemente deja notificaciones vacías
     if (!client) {
+      console.log('🔍 NotificationsContext: No hay client, notificaciones vacías');
       setNotifications([]);
       return;
     }
+    
+    console.log('🔍 NotificationsContext: Cargando notificaciones para client:', client.id);
     setLoading(true);
     try {
       const notifs = await fetchNotifications(client.id);
+      console.log('🔍 NotificationsContext: Notificaciones recibidas:', notifs);
       setNotifications(Array.isArray(notifs) ? notifs : []);
-    } catch {
+    } catch (error) {
+      console.error('❌ NotificationsContext: Error cargando notificaciones:', error);
       setNotifications([]);
     }
     setLoading(false);
   }, [client]);
 
   useEffect(() => {
+    console.log('🔍 NotificationsContext: useEffect ejecutado, client:', client?.id);
     loadNotifications();
     if (!client) return;
     const interval = setInterval(loadNotifications, 20000); // 20s
@@ -42,8 +48,12 @@ export function NotificationsProvider({ children }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAsRead = async (id) => {
-    await markNotificationRead(id);
-    setNotifications(notifs => notifs.map(n => n.id === id ? { ...n, read: true } : n));
+    try {
+      await markNotificationRead(id);
+      setNotifications(notifs => notifs.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (error) {
+      console.error('❌ NotificationsContext: Error marcando notificación como leída:', error);
+    }
   };
 
   return (
